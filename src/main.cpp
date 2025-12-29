@@ -48,7 +48,8 @@ void menuProdutos(ProdutoDAO& dao) {
         opcao = Input::lerInteiro("Opcao: ");
 
         if (opcao == 1) {
-            std::string nome = Input::lerString("Nome do Produto (ex: Barril Brahma 50L): ");
+            std::string nome = Input::lerString("Nome do Produto (ex: Barril Pilsen 50L): "); 
+            // TODO: Estruturar melhor, talvez uma classe por produto
             
             std::cout << "Tipos: [BARRIL] [EQUIPAMENTO] [OUTROS]\n";
             std::string tipo = Input::lerString("Tipo do Produto: ");
@@ -87,7 +88,7 @@ int main() {
         std::cout << "=== DELIVERY CHOPP SYSTEM ===\n";
         std::cout << "1. Clientes\n";
         std::cout << "2. Produtos e Equipamentos\n";
-        std::cout << "3. Novo Pedido (Em breve)\n";
+        std::cout << "3. Novo Pedido\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
@@ -99,7 +100,7 @@ int main() {
                 menuProdutos(produtoDAO);
                 break;
             case 3:
-                std::cout << "Construiremos isso no proximo passo!\n";
+                std::cout << "Em construção\n"; // TODO
                 Input::pausar();
                 break;
             case 0:
