@@ -4,6 +4,7 @@
 #include "Database.hpp"
 #include "ClienteDAO.hpp"
 #include "ProdutoDAO.hpp"
+#include "PedidoDAO.hpp"
 #include "Input.hpp"
 
 // --- SUBMENUS ---
@@ -74,12 +75,93 @@ void menuProdutos(ProdutoDAO& dao) {
     }
 }
 
+void menuNovoPedido(ClienteDAO& cDao, ProdutoDAO& pDao, PedidoDAO& pedDao) {
+    Input::limparTela();
+    std::cout << "--- NOVO PEDIDO ---\n";
+
+    // 1. Identificar o Cliente
+    // (Num sistema real, buscaríamos por nome, aqui vamos listar todos pra facilitar)
+    std::cout << "Selecione o Cliente pelo ID:\n";
+    std::vector<Cliente> clientes = cDao.listarTodos();
+    for(auto& c : clientes) std::cout << " [" << c.id << "] " << c.nome << "\n";
+    
+    int idCli = Input::lerInteiro("\nDigite o ID do Cliente: ");
+    
+    // Validar se cliente existe (simplificado)
+    bool clienteExiste = false;
+    for(auto& c : clientes) if(c.id == idCli) clienteExiste = true;
+    
+    if (!clienteExiste) {
+        std::cout << "Cliente nao encontrado!\n";
+        Input::pausar();
+        return;
+    }
+
+    // 2. Criar objeto Pedido
+    Pedido pedidoAtual;
+    pedidoAtual.idCliente = idCli;
+
+    // 3. Loop de Produtos
+    bool adicionando = true;
+    std::vector<Produto> produtos = pDao.listarTodos();
+
+    while (adicionando) {
+        Input::limparTela();
+        std::cout << "--- ADICIONANDO ITENS AO PEDIDO ---\n";
+        std::cout << "Cliente ID: " << idCli << " | Total Atual: R$ " << pedidoAtual.total << "\n\n";
+        
+        std::cout << "Produtos Disponiveis:\n";
+        for(auto& p : produtos) {
+            std::cout << " [" << p.id << "] " << p.nome << " (R$ " << p.preco_unitario << ")\n";
+        }
+        std::cout << " [0] Encerrar e Salvar Pedido\n";
+
+        int idProd = Input::lerInteiro("\nEscolha o produto (ID): ");
+
+        if (idProd == 0) {
+            adicionando = false;
+        } else {
+            // Busca o produto na lista local
+            Produto prodSelecionado;
+            bool achou = false;
+            for(auto& p : produtos) {
+                if(p.id == idProd) {
+                    prodSelecionado = p;
+                    achou = true;
+                    break;
+                }
+            }
+
+            if(achou) {
+                int qtd = Input::lerInteiro("Quantidade: ");
+                pedidoAtual.adicionarItem(prodSelecionado, qtd);
+                std::cout << ">> Item adicionado!\nAperte ENTER para continuar\n";
+                // Pequeno delay pra ver a mensagem
+                std::cin.ignore(); 
+            } else {
+                std::cout << ">> Produto invalido.\nAperte ENTER para continuar\n";
+                std::cin.ignore();
+            }
+        }
+    }
+
+    // 4. Salvar
+    if (pedidoAtual.itens.empty()) {
+        std::cout << "Pedido vazio cancelado.\n";
+    } else {
+        std::cout << "\nFinalizando pedido... Total: R$ " << pedidoAtual.total << "\n";
+        pedDao.criarPedido(pedidoAtual);
+    }
+    Input::pausar();
+}
+
 // --- MAIN ---
 
 int main() {
     Database db("delivery.db");
     ClienteDAO clienteDAO(db);
     ProdutoDAO produtoDAO(db);
+    PedidoDAO pedidoDAO(db);
 
     int opcao = -1;
 
@@ -100,8 +182,7 @@ int main() {
                 menuProdutos(produtoDAO);
                 break;
             case 3:
-                std::cout << "Em construção\n"; // TODO
-                Input::pausar();
+                menuNovoPedido(clienteDAO, produtoDAO, pedidoDAO);
                 break;
             case 0:
                 std::cout << "Saindo...\n";
