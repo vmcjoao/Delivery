@@ -1,14 +1,26 @@
+#include <iostream>
 #include "Database.hpp"
+#include "ClienteDAO.hpp"
 
 int main() {
-    Database meuBanco("delivery.db");
+    // Inicialização
+    Database db("delivery.db");
+    ClienteDAO clienteDAO(db);
+    Cliente novoCliente("Maria do Bar", "3198888-7777", "Av. Principal, 500");
 
-    // Teste
-    std::string sqlInsert = "INSERT INTO clientes (nome, telefone, endereco) " \
-                            "VALUES ('Joao do Chopp', '3199999-9999', 'Rua Sei la das Quantas, 123');";
+    // Salva no banco
+    clienteDAO.inserir(novoCliente);
 
-    if (meuBanco.executarQuery(sqlInsert)) {
-        std::cout << "Cliente inserido com sucesso!" << std::endl;
+    std::cout << "\n--- Lista de Clientes ---\n";
+
+    // Recupera lista do banco
+    std::vector<Cliente> todos = clienteDAO.listarTodos();
+
+    // Mostra na tela
+    for (const auto& c : todos) {
+        std::cout << "ID: " << c.id 
+                  << " | Nome: " << c.nome 
+                  << " | Tel: " << c.telefone << std::endl;
     }
 
     return 0;
