@@ -1,26 +1,64 @@
 #include <iostream>
 #include "Database.hpp"
 #include "ClienteDAO.hpp"
+#include "Input.hpp"
 
 int main() {
-    // Inicialização
     Database db("delivery.db");
     ClienteDAO clienteDAO(db);
-    Cliente novoCliente("Maria do Bar", "3198888-7777", "Av. Principal, 500");
 
-    // Salva no banco
-    clienteDAO.inserir(novoCliente);
+    int opcao = -1;
 
-    std::cout << "\n--- Lista de Clientes ---\n";
+    while (opcao != 0) {
+        Input::limparTela();
+        std::cout << "=== DELIVERY CHOPP PRO v1.0 ===\n";
+        std::cout << "1. Cadastrar Novo Cliente\n";
+        std::cout << "2. Listar Clientes\n";
+        std::cout << "0. Sair\n";
+        std::cout << "-------------------------------\n";
+        
+        opcao = Input::lerInteiro("Escolha uma opcao: ");
 
-    // Recupera lista do banco
-    std::vector<Cliente> todos = clienteDAO.listarTodos();
+        switch (opcao) {
+            case 1: {
+                Input::limparTela();
+                std::cout << "--- NOVO CADASTRO ---\n";
+                
+                std::string nome = Input::lerString("Nome Completo: ");
+                std::string tel  = Input::lerString("Telefone: ");
+                std::string end  = Input::lerString("Endereco: ");
 
-    // Mostra na tela
-    for (const auto& c : todos) {
-        std::cout << "ID: " << c.id 
-                  << " | Nome: " << c.nome 
-                  << " | Tel: " << c.telefone << std::endl;
+                Cliente novo(nome, tel, end);
+                clienteDAO.inserir(novo);
+                
+                Input::pausar();
+                break;
+            }
+            case 2: {
+                Input::limparTela();
+                std::cout << "--- LISTA DE CLIENTES ---\n";
+                
+                std::vector<Cliente> lista = clienteDAO.listarTodos();
+                
+                if (lista.empty()) {
+                    std::cout << "Nenhum cliente cadastrado.\n";
+                } else {
+                    for (const auto& c : lista) {
+                        std::cout << "#" << c.id << " - " << c.nome 
+                                  << " [" << c.telefone << "]\n";
+                    }
+                }
+                
+                Input::pausar();
+                break;
+            }
+            case 0:
+                std::cout << "Saindo...\n";
+                break;
+            default:
+                std::cout << "Opcao invalida!\n";
+                Input::pausar();
+        }
     }
 
     return 0;
