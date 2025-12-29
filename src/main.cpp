@@ -155,6 +155,47 @@ void menuNovoPedido(ClienteDAO& cDao, ProdutoDAO& pDao, PedidoDAO& pedDao) {
     Input::pausar();
 }
 
+void menuLogistica(PedidoDAO& pedDao) {
+    int opcao = -1;
+    while (opcao != 0) {
+        Input::limparTela();
+        std::cout << "--- CONTROLE DE RECOLHIMENTO ---\n";
+        
+        // 1. Gera o relatório automático
+        std::vector<ItemPendente> pendencias = pedDao.listarItensPendentes();
+
+        if (pendencias.empty()) {
+            std::cout << "\n>> Tudo recolhido! Nenhuma pendencia na rua.\n";
+            std::cout << "\n0. Voltar\n";
+            Input::lerString(""); // Apenas pausa
+            return;
+        }
+
+        std::cout << "ID  | CLIENTE             | ENDERECO             | ITEM\n";
+        std::cout << "------------------------------------------------------------\n";
+        for (auto& p : pendencias) {
+            // Formatação simples para alinhar
+            std::cout << std::left << std::setw(4) << p.idItem << "| " 
+                      << std::setw(20) << p.cliente.substr(0, 19) << "| "
+                      << std::setw(21) << p.endereco.substr(0, 20) << "| "
+                      << p.quantidade << "x " << p.produto << "\n";
+        }
+        std::cout << "------------------------------------------------------------\n";
+        
+        std::cout << "\nDigite o ID do item recolhido para dar baixa (ou 0 para voltar): ";
+        opcao = Input::lerInteiro("");
+
+        if (opcao != 0) {
+            if (pedDao.confirmarRecolhimento(opcao)) {
+                std::cout << "\n>> Item #" << opcao << " marcado como DEVOLVIDO/RECOLHIDO!\n";
+            } else {
+                std::cout << "\n>> Erro ao atualizar item. Verifique o ID.\n";
+            }
+            Input::pausar();
+        }
+    }
+}
+
 // --- MAIN ---
 
 int main() {
@@ -171,6 +212,7 @@ int main() {
         std::cout << "1. Clientes\n";
         std::cout << "2. Produtos e Equipamentos\n";
         std::cout << "3. Novo Pedido\n";
+        std::cout << "4. Logistica (Recolhimento)\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
@@ -183,6 +225,9 @@ int main() {
                 break;
             case 3:
                 menuNovoPedido(clienteDAO, produtoDAO, pedidoDAO);
+                break;
+            case 4:
+                menuLogistica(pedidoDAO);
                 break;
             case 0:
                 std::cout << "Saindo...\n";

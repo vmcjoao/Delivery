@@ -5,6 +5,14 @@
 #include "Database.hpp"
 #include "Pedido.hpp"
 
+struct ItemPendente {
+    int idItem;         // ID da linha na tabela itens_pedido
+    std::string cliente;
+    std::string endereco;
+    std::string produto;
+    int quantidade;
+};
+
 class PedidoDAO {
 private:
     sqlite3* db;
@@ -69,6 +77,55 @@ public:
         sqlite3_exec(db, "COMMIT;", nullptr, 0, nullptr);
         
         std::cout << "Pedido #" << idPedidoGerado << " realizado com sucesso!" << std::endl;
+        return true;
+    }
+
+    // RELATÓRIO DE RECOLHIMENTO
+    std::vector<ItemPendente> listarItensPendentes() {
+        std::vector<ItemPendente> lista;
+        
+        std::string sql = 
+            "SELECT i.id, c.nome, c.endereco, p.nome, i.quantidade "
+            "FROM itens_pedido i "
+            "JOIN pedidos ped ON i.pedido_id = ped.id "
+            "JOIN clientes c ON ped.cliente_id = c.id "
+            "JOIN produtos p ON i.produto_id = p.id "
+            "WHERE i.devolvido = 0 ";   // Apenas o que não voltou
+
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            std::cerr << "Erro ao gerar relatorio: " << sqlite3_errmsg(db) << std::endl;
+            return lista;
+        }
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            ItemPendente item;
+            item.idItem = sqlite3_column_int(stmt, 0);
+            item.cliente = (const char*)sqlite3_column_text(stmt, 1);
+            item.endereco = (const char*)sqlite3_column_text(stmt, 2);
+            item.produto = (const char*)sqlite3_column_text(stmt, 3);
+            item.quantidade = sqlite3_column_int(stmt, 4);
+            lista.push_back(item);
+        }
+        sqlite3_finalize(stmt);
+        return lista;
+    }
+
+    // DAR BAIXA (Confirmar recolhimento)
+    bool confirmarRecolhimento(int idItem) {
+        std::string sql = "UPDATE itens_pedido SET devolvido = 1 WHERE id = ?;";
+        sqlite3_stmt* stmt;
+        
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+        sqlite3_bind_int(stmt, 1, idItem);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            sqlite3_finalize(stmt);
+            return false;
+        }
+        
+        sqlite3_finalize(stmt);
         return true;
     }
 };
