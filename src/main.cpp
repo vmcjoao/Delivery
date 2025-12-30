@@ -161,35 +161,43 @@ void menuLogistica(PedidoDAO& pedDao) {
         Input::limparTela();
         std::cout << "--- CONTROLE DE RECOLHIMENTO ---\n";
         
-        // 1. Gera o relatório automático
         std::vector<ItemPendente> pendencias = pedDao.listarItensPendentes();
 
         if (pendencias.empty()) {
             std::cout << "\n>> Tudo recolhido! Nenhuma pendencia na rua.\n";
             std::cout << "\n0. Voltar\n";
-            Input::lerString(""); // Apenas pausa
+            Input::lerString(""); 
             return;
         }
 
-        std::cout << "ID  | CLIENTE             | ENDERECO             | ITEM\n";
+        std::cout << "ID  | CLIENTE             | ITEM                  | PENDENTE\n";
         std::cout << "------------------------------------------------------------\n";
         for (auto& p : pendencias) {
-            // Formatação simples para alinhar
             std::cout << std::left << std::setw(4) << p.idItem << "| " 
                       << std::setw(20) << p.cliente.substr(0, 19) << "| "
-                      << std::setw(21) << p.endereco.substr(0, 20) << "| "
-                      << p.quantidade << "x " << p.produto << "\n";
+                      << std::setw(22) << p.produto.substr(0, 21) << "| "
+                      << p.quantidadePendente << " (de " << p.quantidadeOriginal << ")\n";
         }
         std::cout << "------------------------------------------------------------\n";
         
-        std::cout << "\nDigite o ID do item recolhido para dar baixa (ou 0 para voltar): ";
+        std::cout << "\nDigite o ID do item para dar baixa (ou 0 para voltar): ";
         opcao = Input::lerInteiro("");
 
         if (opcao != 0) {
-            if (pedDao.confirmarRecolhimento(opcao)) {
-                std::cout << "\n>> Item #" << opcao << " marcado como DEVOLVIDO/RECOLHIDO!\n";
+            // Valida se o ID existe na lista exibida (opcional, mas recomendado)
+            bool idValido = false;
+            for(auto& p : pendencias) if(p.idItem == opcao) idValido = true;
+
+            if(idValido) {
+                int qtd = Input::lerInteiro("Quantas unidades voce recolheu agora? ");
+                if (qtd > 0) {
+                    std::string msg = pedDao.confirmarRecolhimento(opcao, qtd);
+                    std::cout << "\n>> " << msg << "\n";
+                } else {
+                    std::cout << ">> Quantidade deve ser maior que zero.\n";
+                }
             } else {
-                std::cout << "\n>> Erro ao atualizar item. Verifique o ID.\n";
+                std::cout << ">> ID invalido.\n";
             }
             Input::pausar();
         }

@@ -6,13 +6,13 @@
 #include "Pedido.hpp"
 
 struct ItemPendente {
-    int idItem;         // ID da linha na tabela itens_pedido
-    std::string cliente;
-    std::string endereco;
-    std::string produto;
-    int quantidade;
-};
-
+        int idItem;            // ID da linha da tabela de pedidos
+        std::string cliente;
+        std::string endereco;
+        std::string produto;
+        int quantidadeOriginal; // Mudamos o nome para ficar claro
+        int quantidadePendente; // O que falta devolver (calculado)
+    };
 class PedidoDAO {
 private:
     sqlite3* db;
@@ -80,23 +80,22 @@ public:
         return true;
     }
 
-    // RELATÓRIO DE RECOLHIMENTO
+    // RELATÓRIO DE PENDÊNCIAS COM CÁLCULO
     std::vector<ItemPendente> listarItensPendentes() {
         std::vector<ItemPendente> lista;
         
+        // Seleciona apenas itens onde a quantidade devolvida é MENOR que a quantidade total
         std::string sql = 
-            "SELECT i.id, c.nome, c.endereco, p.nome, i.quantidade "
+            "SELECT i.id, c.nome, c.endereco, p.nome, i.quantidade, (i.quantidade - i.qtd_devolvida) as pendente "
             "FROM itens_pedido i "
             "JOIN pedidos ped ON i.pedido_id = ped.id "
             "JOIN clientes c ON ped.cliente_id = c.id "
             "JOIN produtos p ON i.produto_id = p.id "
-            "WHERE i.devolvido = 0 ";   // Apenas o que não voltou
+            "WHERE i.qtd_devolvida < i.quantidade " // <--- FILTRO NOVO
+            "AND p.tipo != 'CONSUMIVEL';";
 
         sqlite3_stmt* stmt;
-        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-            std::cerr << "Erro ao gerar relatorio: " << sqlite3_errmsg(db) << std::endl;
-            return lista;
-        }
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) return lista;
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             ItemPendente item;
@@ -104,29 +103,53 @@ public:
             item.cliente = (const char*)sqlite3_column_text(stmt, 1);
             item.endereco = (const char*)sqlite3_column_text(stmt, 2);
             item.produto = (const char*)sqlite3_column_text(stmt, 3);
-            item.quantidade = sqlite3_column_int(stmt, 4);
+            item.quantidadeOriginal = sqlite3_column_int(stmt, 4);
+            item.quantidadePendente = sqlite3_column_int(stmt, 5); // O valor calculado pelo SQL
             lista.push_back(item);
         }
         sqlite3_finalize(stmt);
         return lista;
     }
 
-    // DAR BAIXA (Confirmar recolhimento)
-    bool confirmarRecolhimento(int idItem) {
-        std::string sql = "UPDATE itens_pedido SET devolvido = 1 WHERE id = ?;";
-        sqlite3_stmt* stmt;
+    // RECOLHIMENTO PARCIAL
+    std::string confirmarRecolhimento(int idItem, int qtdRecolhida) {
+        // Primeiro: Verificar quantos faltam para não devolver mais do que deve
+        std::string sqlCheck = "SELECT quantidade, qtd_devolvida FROM itens_pedido WHERE id = ?;";
+        sqlite3_stmt* stmtCheck;
+        sqlite3_prepare_v2(db, sqlCheck.c_str(), -1, &stmtCheck, nullptr);
+        sqlite3_bind_int(stmtCheck, 1, idItem);
         
-        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) return false;
-
-        sqlite3_bind_int(stmt, 1, idItem);
-
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            sqlite3_finalize(stmt);
-            return false;
+        if (sqlite3_step(stmtCheck) != SQLITE_ROW) {
+            sqlite3_finalize(stmtCheck);
+            return "Erro: Item nao encontrado.";
         }
         
-        sqlite3_finalize(stmt);
-        return true;
+        int total = sqlite3_column_int(stmtCheck, 0);
+        int jaDevolvido = sqlite3_column_int(stmtCheck, 1);
+        int pendente = total - jaDevolvido;
+        sqlite3_finalize(stmtCheck);
+
+        if (qtdRecolhida > pendente) {
+            return "Erro: Voce tentou devolver mais do que o pendente!";
+        }
+
+        // Segundo: Atualizar somando
+        std::string sqlUpdate = "UPDATE itens_pedido SET qtd_devolvida = qtd_devolvida + ? WHERE id = ?;";
+        sqlite3_stmt* stmtUp;
+        sqlite3_prepare_v2(db, sqlUpdate.c_str(), -1, &stmtUp, nullptr);
+        
+        sqlite3_bind_int(stmtUp, 1, qtdRecolhida);
+        sqlite3_bind_int(stmtUp, 2, idItem);
+
+        bool sucesso = (sqlite3_step(stmtUp) == SQLITE_DONE);
+        sqlite3_finalize(stmtUp);
+
+        if (sucesso) {
+            // Verifica se finalizou tudo deste item
+            if (qtdRecolhida == pendente) return "Item quitado completamente!";
+            else return "Baixa parcial realizada. Ainda restam itens.";
+        }
+        return "Erro ao atualizar banco.";
     }
 };
 
