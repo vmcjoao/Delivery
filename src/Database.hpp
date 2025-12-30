@@ -50,6 +50,10 @@ private:
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "cliente_id INTEGER,"
             "data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,"
+            "data_entrega TEXT,"      
+            "data_recolhimento TEXT,"  
+            "observacao TEXT,"         
+            "taxa_entrega REAL,"        
             "status TEXT NOT NULL,"
             "total_pedido REAL,"
             "FOREIGN KEY(cliente_id) REFERENCES clientes(id));";

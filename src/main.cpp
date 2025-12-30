@@ -149,8 +149,31 @@ void menuNovoPedido(ClienteDAO& cDao, ProdutoDAO& pDao, PedidoDAO& pedDao) {
     if (pedidoAtual.itens.empty()) {
         std::cout << "Pedido vazio cancelado.\n";
     } else {
-        std::cout << "\nFinalizando pedido... Total: R$ " << pedidoAtual.total << "\n";
-        pedDao.criarPedido(pedidoAtual);
+        Input::limparTela();
+        std::cout << "--- DETALHES DA ENTREGA ---\n";
+        
+        // Formato YYYY-MM-DD para ordenar certo na agenda
+        pedidoAtual.dataEntrega = Input::lerString("Data da Entrega (YYYY-MM-DD): ");
+        pedidoAtual.dataRecolhimento = Input::lerString("Data do Recolhimento (YYYY-MM-DD): ");
+        
+        // Taxa opcional
+        std::cout << "Deseja cobrar taxa de entrega? (Digite 0 se nao houver)\n";
+        pedidoAtual.taxaEntrega = Input::lerDecimal("Valor da Taxa: R$ ");
+        
+        pedidoAtual.observacao = Input::lerString("Observacoes (ex: Zona Rural, portao azul): ");
+
+        std::cout << "\nTotal Itens: R$ " << pedidoAtual.total;
+        std::cout << "\nTaxa:        R$ " << pedidoAtual.taxaEntrega;
+        std::cout << "\nTOTAL FINAL: R$ " << pedidoAtual.getTotalComTaxa() << "\n";
+        
+        std::cout << "\n[1] Confirmar e Salvar  [0] Cancelar\n";
+        int confirm = Input::lerInteiro("Opcao: ");
+        
+        if (confirm == 1) {
+            pedDao.criarPedido(pedidoAtual);
+        } else {
+            std::cout << "Pedido cancelado.\n";
+        }
     }
     Input::pausar();
 }
@@ -204,6 +227,27 @@ void menuLogistica(PedidoDAO& pedDao) {
     }
 }
 
+void menuAgenda(PedidoDAO& dao) {
+    Input::limparTela();
+    std::cout << "--- AGENDA / CALENDARIO ---\n";
+    std::vector<AgendaItem> agenda = dao.listarAgenda();
+
+    if (agenda.empty()) {
+        std::cout << "Nenhum evento agendado.\n";
+    } else {
+        std::cout << "DATA       | TIPO          | CLIENTE          | OBS\n";
+        std::cout << "---------------------------------------------------------------\n";
+        for (const auto& item : agenda) {
+            std::cout << std::left 
+                      << std::setw(11) << item.data << "| "
+                      << std::setw(14) << item.tipo << "| "
+                      << std::setw(17) << item.nomeCliente.substr(0,16) << "| "
+                      << item.observacao << "\n";
+        }
+    }
+    Input::pausar();
+}
+
 // --- MAIN ---
 
 int main() {
@@ -221,6 +265,7 @@ int main() {
         std::cout << "2. Produtos e Equipamentos\n";
         std::cout << "3. Novo Pedido\n";
         std::cout << "4. Logistica (Recolhimento)\n";
+        std::cout << "5. Ver Agenda (Calendario)\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
@@ -236,6 +281,9 @@ int main() {
                 break;
             case 4:
                 menuLogistica(pedidoDAO);
+                break;
+            case 5:
+                menuAgenda(pedidoDAO);
                 break;
             case 0:
                 std::cout << "Saindo...\n";

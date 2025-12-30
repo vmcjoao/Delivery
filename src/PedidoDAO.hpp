@@ -2,17 +2,29 @@
 #define PEDIDODAO_H
 
 #include <vector>
+#include <iomanip>
 #include "Database.hpp"
 #include "Pedido.hpp"
 
+// Struct auxiliar para a Agenda
+struct AgendaItem {
+    int idPedido;
+    std::string data;
+    std::string tipo; // "ENTREGA" ou "RECOLHIMENTO"
+    std::string nomeCliente;
+    std::string observacao;
+};
+
+// Struct auxiliar para itens pendentes
 struct ItemPendente {
-        int idItem;            // ID da linha da tabela de pedidos
-        std::string cliente;
-        std::string endereco;
-        std::string produto;
-        int quantidadeOriginal; // Mudamos o nome para ficar claro
-        int quantidadePendente; // O que falta devolver (calculado)
-    };
+    int idItem;
+    std::string cliente;
+    std::string endereco;
+    std::string produto;
+    int quantidadeOriginal;
+    int quantidadePendente;
+};
+
 class PedidoDAO {
 private:
     sqlite3* db;
@@ -22,77 +34,99 @@ public:
         db = database.getConnection();
     }
 
+    // CRIAR PEDIDO
     bool criarPedido(Pedido& p) {
         char* zErrMsg = 0;
-
-        // 1. INICIAR TRANSAÇÃO (Trava o banco para escrita segura)
         sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, 0, &zErrMsg);
 
-        // 2. INSERIR O CABEÇALHO (Tabela pedidos)
-        std::string sqlPedido = "INSERT INTO pedidos (cliente_id, status, total_pedido, data_pedido) VALUES (?, ?, ?, datetime('now'));";
+        std::string sqlPedido = "INSERT INTO pedidos (cliente_id, status, total_pedido, data_entrega, data_recolhimento, observacao, taxa_entrega) VALUES (?, ?, ?, ?, ?, ?, ?);";
         sqlite3_stmt* stmt;
 
         if (sqlite3_prepare_v2(db, sqlPedido.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-            std::cerr << "Erro ao preparar pedido: " << sqlite3_errmsg(db) << std::endl;
-            return false; // Nota: Numa aplicação real, faríamos ROLLBACK aqui
+            std::cerr << "Erro prepare pedido: " << sqlite3_errmsg(db) << std::endl;
+            return false;
         }
 
         sqlite3_bind_int(stmt, 1, p.idCliente);
         sqlite3_bind_text(stmt, 2, "ABERTO", -1, SQLITE_STATIC);
-        sqlite3_bind_double(stmt, 3, p.total);
+        sqlite3_bind_double(stmt, 3, p.getTotalComTaxa());
+        sqlite3_bind_text(stmt, 4, p.dataEntrega.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 5, p.dataRecolhimento.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 6, p.observacao.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_double(stmt, 7, p.taxaEntrega);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
-            std::cerr << "Erro ao salvar cabeçalho: " << sqlite3_errmsg(db) << std::endl;
+            std::cerr << "Erro step pedido: " << sqlite3_errmsg(db) << std::endl;
             sqlite3_finalize(stmt);
             return false;
         }
         sqlite3_finalize(stmt);
 
-        // 3. PEGAR O ID GERADO AUTOMATICAMENTE
         long long idPedidoGerado = sqlite3_last_insert_rowid(db);
 
-        // 4. INSERIR OS ITENS (Loop)
         std::string sqlItem = "INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_momento) VALUES (?, ?, ?, ?);";
-        
         for (const auto& item : p.itens) {
             sqlite3_stmt* stmtItem;
             sqlite3_prepare_v2(db, sqlItem.c_str(), -1, &stmtItem, nullptr);
-
             sqlite3_bind_int64(stmtItem, 1, idPedidoGerado);
             sqlite3_bind_int(stmtItem, 2, item.produto.id);
             sqlite3_bind_int(stmtItem, 3, item.quantidade);
             sqlite3_bind_double(stmtItem, 4, item.precoCobrado);
-
             if (sqlite3_step(stmtItem) != SQLITE_DONE) {
-                std::cerr << "Erro ao salvar item. Abortando..." << std::endl;
                 sqlite3_finalize(stmtItem);
-                // SE DEU ERRO, DESFAZ TUDO!
                 sqlite3_exec(db, "ROLLBACK;", nullptr, 0, nullptr); 
                 return false;
             }
             sqlite3_finalize(stmtItem);
         }
 
-        // 5. CONFIRMAR TRANSAÇÃO (Grava tudo no disco permanentemente)
         sqlite3_exec(db, "COMMIT;", nullptr, 0, nullptr);
-        
-        std::cout << "Pedido #" << idPedidoGerado << " realizado com sucesso!" << std::endl;
+        std::cout << "Pedido #" << idPedidoGerado << " salvo! Total c/ taxa: R$ " << p.getTotalComTaxa() << std::endl;
         return true;
     }
 
-    // RELATÓRIO DE PENDÊNCIAS COM CÁLCULO
+    // AGENDA
+    std::vector<AgendaItem> listarAgenda() {
+        std::vector<AgendaItem> agenda;
+        
+        // SQL Híbrido: Pega entregas E recolhimentos e ordena por data
+        // UNION ALL para juntar duas consultas em uma lista só
+        std::string sql = 
+            "SELECT p.id, p.data_entrega as data, 'ENTREGA' as tipo, c.nome, p.observacao "
+            "FROM pedidos p JOIN clientes c ON p.cliente_id = c.id WHERE p.status != 'FINALIZADO' "
+            "UNION ALL "
+            "SELECT p.id, p.data_recolhimento as data, 'RECOLHIMENTO' as tipo, c.nome, p.observacao "
+            "FROM pedidos p JOIN clientes c ON p.cliente_id = c.id WHERE p.status != 'FINALIZADO' "
+            "ORDER BY data ASC;";
+
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) return agenda;
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            AgendaItem item;
+            item.idPedido = sqlite3_column_int(stmt, 0);
+            const unsigned char* dataText = sqlite3_column_text(stmt, 1);
+            item.data = dataText ? (const char*)dataText : "Sem Data";
+            item.tipo = (const char*)sqlite3_column_text(stmt, 2);
+            item.nomeCliente = (const char*)sqlite3_column_text(stmt, 3);
+            const unsigned char* obsText = sqlite3_column_text(stmt, 4);
+            item.observacao = obsText ? (const char*)obsText : "";
+            agenda.push_back(item);
+        }
+        sqlite3_finalize(stmt);
+        return agenda;
+    }
+
+    // PENDÊNCIAS
     std::vector<ItemPendente> listarItensPendentes() {
         std::vector<ItemPendente> lista;
-        
-        // Seleciona apenas itens onde a quantidade devolvida é MENOR que a quantidade total
         std::string sql = 
-            "SELECT i.id, c.nome, c.endereco, p.nome, i.quantidade, (i.quantidade - i.qtd_devolvida) as pendente "
+            "SELECT i.id, c.nome, c.endereco, p.nome, i.quantidade, (i.quantidade - i.qtd_devolvida) "
             "FROM itens_pedido i "
             "JOIN pedidos ped ON i.pedido_id = ped.id "
             "JOIN clientes c ON ped.cliente_id = c.id "
             "JOIN produtos p ON i.produto_id = p.id "
-            "WHERE i.qtd_devolvida < i.quantidade " // <--- FILTRO NOVO
-            "AND p.tipo != 'CONSUMIVEL';";
+            "WHERE i.qtd_devolvida < i.quantidade AND p.tipo != 'CONSUMIVEL';";
 
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) return lista;
@@ -104,7 +138,7 @@ public:
             item.endereco = (const char*)sqlite3_column_text(stmt, 2);
             item.produto = (const char*)sqlite3_column_text(stmt, 3);
             item.quantidadeOriginal = sqlite3_column_int(stmt, 4);
-            item.quantidadePendente = sqlite3_column_int(stmt, 5); // O valor calculado pelo SQL
+            item.quantidadePendente = sqlite3_column_int(stmt, 5);
             lista.push_back(item);
         }
         sqlite3_finalize(stmt);

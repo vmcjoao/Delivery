@@ -8,7 +8,7 @@
 struct ItemPedido {
     Produto produto;
     int quantidade;
-    double precoCobrado; // Importante: Salvar o preço DO DIA (se o produto aumentar depois, esse valor não muda)
+    double precoCobrado;
 };
 
 class Pedido {
@@ -16,22 +16,34 @@ public:
     int id;
     int idCliente;
     double total;
-    std::string status; // ABERTO, ENTREGUE, FINALIZADO
+    std::string status; 
+    
+    // --- NOVOS CAMPOS ---
+    std::string dataEntrega;      // Formato sugerido: YYYY-MM-DD
+    std::string dataRecolhimento; // Formato sugerido: YYYY-MM-DD
+    std::string observacao;       // Ex: "Sítio, estrada de terra"
+    double taxaEntrega;           // Ex: 50.00
+    // --------------------
+
     std::vector<ItemPedido> itens;
 
-    Pedido() : id(0), idCliente(0), total(0.0), status("ABERTO") {}
+    // Construtor atualizado
+    Pedido() : id(0), idCliente(0), total(0.0), status("ABERTO"), taxaEntrega(0.0) {}
 
-    // Função auxiliar para facilitar na main
     void adicionarItem(Produto p, int qtd) {
         ItemPedido item;
         item.produto = p;
         item.quantidade = qtd;
         item.precoCobrado = p.preco_unitario;
-        
         itens.push_back(item);
         
-        // Se for equipamento (preço 0), não soma no total financeiro
+        // Soma apenas os itens ao total (a taxa será somada depois)
         total += (item.precoCobrado * qtd);
+    }
+    
+    // Método para calcular o total final com a taxa
+    double getTotalComTaxa() const {
+        return total + taxaEntrega;
     }
 };
 
