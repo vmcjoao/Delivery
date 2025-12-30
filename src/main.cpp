@@ -182,47 +182,75 @@ void menuLogistica(PedidoDAO& pedDao) {
     int opcao = -1;
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "--- CONTROLE DE RECOLHIMENTO ---\n";
+        std::cout << "--- LOGISTICA E FECHAMENTO ---\n";
         
         std::vector<ItemPendente> pendencias = pedDao.listarItensPendentes();
 
         if (pendencias.empty()) {
-            std::cout << "\n>> Tudo recolhido! Nenhuma pendencia na rua.\n";
-            std::cout << "\n0. Voltar\n";
+            std::cout << "\n>> Tudo recolhido!\n0. Voltar\n";
             Input::lerString(""); 
             return;
         }
 
-        std::cout << "ID  | CLIENTE             | ITEM                  | PENDENTE\n";
-        std::cout << "------------------------------------------------------------\n";
+        std::cout << "ID  | PEDIDO | PRODUTO               | PENDENTE | PRECO UN.\n";
+        std::cout << "--------------------------------------------------------------\n";
         for (auto& p : pendencias) {
             std::cout << std::left << std::setw(4) << p.idItem << "| " 
-                      << std::setw(20) << p.cliente.substr(0, 19) << "| "
+                      << std::setw(7) << p.idPedido << "| "
                       << std::setw(22) << p.produto.substr(0, 21) << "| "
-                      << p.quantidadePendente << " (de " << p.quantidadeOriginal << ")\n";
+                      << p.quantidadePendente << "        | R$ " << p.precoUnitario << "\n";
         }
-        std::cout << "------------------------------------------------------------\n";
+        std::cout << "--------------------------------------------------------------\n";
         
-        std::cout << "\nDigite o ID do item para dar baixa (ou 0 para voltar): ";
-        opcao = Input::lerInteiro("");
+        std::cout << "\n[ID do Item] para dar baixa | [0] Voltar\n";
+        opcao = Input::lerInteiro("Opcao: ");
 
         if (opcao != 0) {
-            // Valida se o ID existe na lista exibida (opcional, mas recomendado)
-            bool idValido = false;
-            for(auto& p : pendencias) if(p.idItem == opcao) idValido = true;
+            // Busca dados do item selecionado na lista local
+            ItemPendente itemSel;
+            bool achou = false;
+            for(auto& p : pendencias) if(p.idItem == opcao) { itemSel = p; achou = true; }
 
-            if(idValido) {
-                int qtd = Input::lerInteiro("Quantas unidades voce recolheu agora? ");
-                if (qtd > 0) {
-                    std::string msg = pedDao.confirmarRecolhimento(opcao, qtd);
-                    std::cout << "\n>> " << msg << "\n";
-                } else {
-                    std::cout << ">> Quantidade deve ser maior que zero.\n";
+            if(achou) {
+                int qtd = Input::lerInteiro("Quantidade recolhida agora: ");
+                int qtdNaoConsumida = 0;
+                
+                // Só pergunta se foi consumido se tiver preço
+                if (itemSel.precoUnitario > 0) {
+                    std::cout << "Dessa quantidade (" << qtd << "), quantos VOLTARAM CHEIOS (não consumidos)?\n";
+                    std::cout << "Isso sera abatido da conta.\n";
+                    qtdNaoConsumida = Input::lerInteiro("Qtd nao consumida: ");
                 }
+
+                std::string msg = pedDao.confirmarRecolhimento(opcao, qtd, qtdNaoConsumida);
+                std::cout << "\n>> " << msg << "\n";
+                Input::pausar();
+
+                // Verificar se o pedido desse item acabou
+                if (pedDao.pedidoEstaCompleto(itemSel.idPedido)) {
+                    Input::limparTela();
+                    std::cout << "!!! O PEDIDO #" << itemSel.idPedido << " FOI TOTALMENTE RECOLHIDO !!!\n";
+                    std::cout << "Deseja realizar o fechamento financeiro agora? (1-Sim, 0-Nao)\n";
+                    int fechar = Input::lerInteiro("Opcao: ");
+                    
+                    if (fechar == 1) {
+                        std::cout << "\n--- FECHAMENTO FINANCEIRO ---\n";
+                        double desconto = Input::lerDecimal("Desconto em dinheiro (R$): ");
+                        std::cout << "Forma de Pagamento (PIX, DINHEIRO, CARTAO): ";
+                        std::string forma = Input::lerString("");
+                        
+                        std::string res = pedDao.fecharPedido(itemSel.idPedido, desconto, forma);
+                        std::cout << "\n***********************************\n";
+                        std::cout << res << "\n";
+                        std::cout << "***********************************\n";
+                        Input::pausar();
+                    }
+                }
+
             } else {
                 std::cout << ">> ID invalido.\n";
+                Input::pausar();
             }
-            Input::pausar();
         }
     }
 }

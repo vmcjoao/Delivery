@@ -44,22 +44,26 @@ private:
             "tipo TEXT NOT NULL);";
         criarTabela("PRODUTOS", sqlProdutos);
 
-        // 3. Pedidos
+        // 3. Pedidos (COM FINANCEIRO)
         std::string sqlPedidos = 
             "CREATE TABLE IF NOT EXISTS pedidos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "cliente_id INTEGER,"
             "data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,"
-            "data_entrega TEXT,"      
-            "data_recolhimento TEXT,"  
-            "observacao TEXT,"         
-            "taxa_entrega REAL,"        
+            "data_entrega TEXT,"
+            "data_recolhimento TEXT,"
+            "observacao TEXT,"
+            "taxa_entrega REAL DEFAULT 0,"
             "status TEXT NOT NULL,"
             "total_pedido REAL,"
+            "desconto REAL DEFAULT 0,"       // Desconto em dinheiro
+            "valor_final REAL DEFAULT 0,"    // Valor efetivamente pago
+            "forma_pagamento TEXT,"          // Pix, Dinheiro, Cartao
+            "status_pagamento TEXT DEFAULT 'PENDENTE'," // PAGO ou PENDENTE
             "FOREIGN KEY(cliente_id) REFERENCES clientes(id));";
         criarTabela("PEDIDOS", sqlPedidos);
 
-        // 4. Itens (Com a nova coluna qtd_devolvida)
+        // 4. Itens
         std::string sqlItens = 
             "CREATE TABLE IF NOT EXISTS itens_pedido ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -68,6 +72,7 @@ private:
             "quantidade INTEGER NOT NULL,"
             "preco_momento REAL NOT NULL,"
             "qtd_devolvida INTEGER DEFAULT 0,"
+            "qtd_nao_consumida INTEGER DEFAULT 0,"
             "FOREIGN KEY(pedido_id) REFERENCES pedidos(id),"
             "FOREIGN KEY(produto_id) REFERENCES produtos(id));";
         criarTabela("ITENS_PEDIDO", sqlItens);
