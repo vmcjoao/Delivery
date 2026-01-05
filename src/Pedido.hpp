@@ -8,42 +8,42 @@
 struct ItemPedido {
     Produto produto;
     int quantidade;
-    double precoCobrado;
+    double precoNoMomento; // Preço na hora da venda
 };
 
 class Pedido {
 public:
     int id;
     int idCliente;
-    double total;
-    std::string status; 
     
-    // --- NOVOS CAMPOS ---
-    std::string dataEntrega;      // Formato sugerido: YYYY-MM-DD
-    std::string dataRecolhimento; // Formato sugerido: YYYY-MM-DD
-    std::string observacao;       // Ex: "Sítio, estrada de terra"
-    double taxaEntrega;           // Ex: 50.00
-    // --------------------
+    // Dados Logísticos
+    std::string dataEntrega;
+    std::string dataRecolhimento;
+    int nrPessoas;
+    std::string observacao;
+    std::string status;           // ABERTO, EM_ROTA, ENTREGUE, FINALIZADO
+
+    // Dados Financeiros
+    double totalPrevisto;         // Soma dos itens
+    double totalFinal;            // Após recolhimento
+    double desconto;
+    std::string formaPagamento;
+    std::string statusPagamento;  // PENDENTE, PAGO
 
     std::vector<ItemPedido> itens;
 
-    // Construtor atualizado
-    Pedido() : id(0), idCliente(0), total(0.0), status("ABERTO"), taxaEntrega(0.0) {}
+    Pedido() : id(0), idCliente(0), nrPessoas(0), status("ABERTO"), 
+               totalPrevisto(0.0), totalFinal(0.0), desconto(0.0), statusPagamento("PENDENTE") {}
 
     void adicionarItem(Produto p, int qtd) {
         ItemPedido item;
         item.produto = p;
         item.quantidade = qtd;
-        item.precoCobrado = p.preco_unitario;
+        item.precoNoMomento = p.precoBase;
         itens.push_back(item);
         
-        // Soma apenas os itens ao total (a taxa será somada depois)
-        total += (item.precoCobrado * qtd);
-    }
-    
-    // Método para calcular o total final com a taxa
-    double getTotalComTaxa() const {
-        return total + taxaEntrega;
+        // Atualiza o total previsto
+        totalPrevisto += (item.precoNoMomento * qtd);
     }
 };
 

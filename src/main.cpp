@@ -6,6 +6,8 @@
 #include "TipoAtivoDAO.hpp"
 #include "ProdutoDAO.hpp"
 #include "AtivoDAO.hpp"
+#include "ClienteDAO.hpp"
+#include "PedidoDAO.hpp"
 
 // --- FUNÇÃO AUXILIAR: Selecionar um Tipo de Ativo ---
 // Retorna o ID do tipo escolhido ou 0 se cancelar
@@ -148,6 +150,95 @@ void menuAtivos(AtivoDAO& aDao, TipoAtivoDAO& tDao) {
     }
 }
 
+// --- MENU 4: NOVO PEDIDO ---
+void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) {
+    Input::limparTela();
+    std::cout << "--- NOVO PEDIDO (FASE 3) ---\n";
+
+    // 1. Selecionar Cliente
+    std::vector<Cliente> clientes = cliDao.listarTodos();
+    if (clientes.empty()) {
+        std::cout << ">> Nenhum cliente cadastrado! Va em Clientes primeiro.\n";
+        Input::pausar();
+        return;
+    }
+    
+    std::cout << "Selecione o Cliente:\n";
+    for(auto& c : clientes) std::cout << " [" << c.id << "] " << c.nome << "\n";
+    int idCli = Input::lerInteiro("ID do Cliente: ");
+
+    // 2. Dados Logísticos
+    Input::limparTela();
+    std::cout << "--- DADOS LOGISTICOS ---\n";
+    // Usar YYYY-MM-DD HH:MM
+    std::string entrega = Input::lerString("Data/Hora Entrega (AAAA-MM-DD HH:MM): ");
+    std::string recolha = Input::lerString("Data/Hora Recolha (AAAA-MM-DD HH:MM): ");
+    int pessoas = Input::lerInteiro("Numero Estimado de Pessoas: ");
+    std::string obs = Input::lerString("Observacoes de Entrega: ");
+
+    Pedido pedido;
+    pedido.idCliente = idCli;
+    pedido.dataEntrega = entrega;
+    pedido.dataRecolhimento = recolha;
+    pedido.nrPessoas = pessoas;
+    pedido.observacao = obs;
+
+    // 3. Adicionar Produtos
+    bool adicionando = true;
+    std::vector<Produto> produtos = prodDao.listarTodos();
+
+    while (adicionando) {
+        Input::limparTela();
+        std::cout << "--- ADICIONAR PRODUTOS AO PEDIDO ---\n";
+        std::cout << "Total Previsto: R$ " << pedido.totalPrevisto << "\n\n";
+
+        for(auto& p : produtos) {
+            std::cout << " [" << p.id << "] " << p.nome << " (R$ " << p.precoBase << ")\n";
+        }
+        std::cout << " [0] Finalizar Selecao\n";
+
+        int idProd = Input::lerInteiro("\nEscolha o Produto: ");
+        if (idProd == 0) {
+            adicionando = false;
+        } else {
+            // Encontra o produto na lista para pegar o preço e nome
+            bool achou = false;
+            for(auto& p : produtos) {
+                if(p.id == idProd) {
+                    int qtd = Input::lerInteiro("Quantidade: ");
+                    pedido.adicionarItem(p, qtd);
+                    achou = true;
+                    break;
+                }
+            }
+            if(!achou) std::cout << "Produto invalido!\n";
+        }
+    }
+
+    if (pedido.itens.empty()) {
+        std::cout << "Pedido vazio cancelado.\n";
+        Input::pausar();
+        return;
+    }
+
+    // 4. Fechamento Inicial
+    Input::limparTela();
+    std::cout << "--- RESUMO DO PEDIDO ---\n";
+    std::cout << "Entrega: " << pedido.dataEntrega << "\n";
+    std::cout << "Itens: " << pedido.itens.size() << "\n";
+    std::cout << "Total Previsto: R$ " << pedido.totalPrevisto << "\n";
+    
+    std::cout << "Deseja confirmar o agendamento? (1-Sim, 0-Nao): ";
+    int confirm = Input::lerInteiro("");
+
+    if (confirm == 1) {
+        pedDao.criarPedido(pedido);
+    } else {
+        std::cout << "Cancelado.\n";
+    }
+    Input::pausar();
+}
+
 // --- MAIN ---
 int main() {
     Database db("delivery.db");
@@ -156,39 +247,39 @@ int main() {
     TipoAtivoDAO tipoDAO(db);
     ProdutoDAO produtoDAO(db);
     AtivoDAO ativoDAO(db);
+    ClienteDAO clienteDAO(db);
+    PedidoDAO pedidoDAO(db);
 
     int opcao = -1;
 
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "=== DELIVERY CHOPP - GESTAO DE ESTOQUE v2.0 ===\n";
-        std::cout << "1. Gerenciar TIPOS (Definicoes)\n";
+        std::cout << "=== DELIVERY CHOPP - SISTEMA COMPLETO ===\n";
+        std::cout << "1. Gerenciar TIPOS (Configuracao)\n";
         std::cout << "2. Gerenciar PRODUTOS (Catalogo)\n";
         std::cout << "3. Gerenciar ATIVOS (Estoque Fisico)\n";
-        std::cout << "4. Pedidos\n";
+        std::cout << "4. NOVO PEDIDO\n";
+        std::cout << "5. Clientes (Cadastro Rapido)\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
         switch (opcao) {
-            case 1:
-                menuTipos(tipoDAO);
-                break;
-            case 2:
-                menuProdutos(produtoDAO, tipoDAO);
-                break;
-            case 3:
-                menuAtivos(ativoDAO, tipoDAO);
-                break;
-            case 4:
-                std::cout << "Vamos configurar o estoque primeiro!\n";
+            case 1: menuTipos(tipoDAO); break;
+            case 2: menuProdutos(produtoDAO, tipoDAO); break;
+            case 3: menuAtivos(ativoDAO, tipoDAO); break;
+            case 4: menuNovoPedido(clienteDAO, produtoDAO, pedidoDAO); break;
+            case 5: {
+                // Mini-menu de clientes pra não travar o fluxo
+                std::string nome = Input::lerString("Nome: ");
+                std::string tel = Input::lerString("Tel: ");
+                std::string end = Input::lerString("End: ");
+                Cliente c(nome, tel, end);
+                clienteDAO.inserir(c);
                 Input::pausar();
                 break;
-            case 0:
-                std::cout << "Saindo...\n";
-                break;
-            default:
-                std::cout << "Opcao invalida.\n";
-                Input::pausar();
+            } 
+            case 0: std::cout << "Saindo...\n"; break;
+            default: Input::pausar();
         }
     }
     return 0;
