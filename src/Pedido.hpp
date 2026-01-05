@@ -17,15 +17,15 @@ public:
     int idCliente;
     
     // Dados Logísticos
-    std::string dataEntrega;
-    std::string dataRecolhimento;
+    std::string dataEntrega;      // AAAA-MM-DD HH:MM
+    std::string dataRecolhimento; // AAAA-MM-DD HH:MM
     int nrPessoas;
     std::string observacao;
     std::string status;           // ABERTO, EM_ROTA, ENTREGUE, FINALIZADO
 
     // Dados Financeiros
-    double totalPrevisto;         // Soma dos itens
-    double totalFinal;            // Após recolhimento
+    double totalPrevisto;         // Soma dos itens * quantidade
+    double totalFinal;            // Valor real após recolhimento
     double desconto;
     std::string formaPagamento;
     std::string statusPagamento;  // PENDENTE, PAGO

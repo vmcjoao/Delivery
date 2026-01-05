@@ -26,7 +26,7 @@ int selecionarTipoAtivo(TipoAtivoDAO& tDao) {
     return Input::lerInteiro("\nDigite o ID do Tipo desejado: ");
 }
 
-// --- MENU 1: TIPOS DE ATIVO (Definições) ---
+// --- TIPOS DE ATIVO (Definições) ---
 void menuTipos(TipoAtivoDAO& tDao) {
     int opcao = -1;
     while (opcao != 0) {
@@ -54,7 +54,7 @@ void menuTipos(TipoAtivoDAO& tDao) {
     }
 }
 
-// --- MENU 2: PRODUTOS (Catálogo de Venda) ---
+// --- PRODUTOS (Catálogo de Venda) ---
 void menuProdutos(ProdutoDAO& pDao, TipoAtivoDAO& tDao) {
     int opcao = -1;
     while (opcao != 0) {
@@ -95,7 +95,7 @@ void menuProdutos(ProdutoDAO& pDao, TipoAtivoDAO& tDao) {
     }
 }
 
-// --- MENU 3: ATIVOS (Patrimônio Físico) ---
+// --- ATIVOS (Patrimônio Físico) ---
 void menuAtivos(AtivoDAO& aDao, TipoAtivoDAO& tDao) {
     int opcao = -1;
     while (opcao != 0) {
@@ -150,15 +150,15 @@ void menuAtivos(AtivoDAO& aDao, TipoAtivoDAO& tDao) {
     }
 }
 
-// --- MENU 4: NOVO PEDIDO ---
+// --- NOVO PEDIDO ---
 void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) {
     Input::limparTela();
-    std::cout << "--- NOVO PEDIDO (FASE 3) ---\n";
+    std::cout << "--- NOVO PEDIDO ---\n";
 
     // 1. Selecionar Cliente
     std::vector<Cliente> clientes = cliDao.listarTodos();
     if (clientes.empty()) {
-        std::cout << ">> Nenhum cliente cadastrado! Va em Clientes primeiro.\n";
+        std::cout << ">> Nenhum cliente cadastrado! Use a opcao 5 no menu principal.\n";
         Input::pausar();
         return;
     }
@@ -170,11 +170,10 @@ void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) 
     // 2. Dados Logísticos
     Input::limparTela();
     std::cout << "--- DADOS LOGISTICOS ---\n";
-    // Usar YYYY-MM-DD HH:MM
-    std::string entrega = Input::lerString("Data/Hora Entrega (AAAA-MM-DD HH:MM): ");
-    std::string recolha = Input::lerString("Data/Hora Recolha (AAAA-MM-DD HH:MM): ");
-    int pessoas = Input::lerInteiro("Numero Estimado de Pessoas: ");
-    std::string obs = Input::lerString("Observacoes de Entrega: ");
+    std::string entrega = Input::lerString("Data Entrega (YYYY-MM-DD HH:MM): ");
+    std::string recolha = Input::lerString("Data Recolha (YYYY-MM-DD HH:MM): ");
+    int pessoas = Input::lerInteiro("Numero de Pessoas: ");
+    std::string obs = Input::lerString("Observacoes: ");
 
     Pedido pedido;
     pedido.idCliente = idCli;
@@ -189,7 +188,7 @@ void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) 
 
     while (adicionando) {
         Input::limparTela();
-        std::cout << "--- ADICIONAR PRODUTOS AO PEDIDO ---\n";
+        std::cout << "--- CARRINHO DE COMPRAS ---\n";
         std::cout << "Total Previsto: R$ " << pedido.totalPrevisto << "\n\n";
 
         for(auto& p : produtos) {
@@ -201,7 +200,6 @@ void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) 
         if (idProd == 0) {
             adicionando = false;
         } else {
-            // Encontra o produto na lista para pegar o preço e nome
             bool achou = false;
             for(auto& p : produtos) {
                 if(p.id == idProd) {
@@ -221,20 +219,24 @@ void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) 
         return;
     }
 
-    // 4. Fechamento Inicial
+    // 4. Salvar
     Input::limparTela();
-    std::cout << "--- RESUMO DO PEDIDO ---\n";
-    std::cout << "Entrega: " << pedido.dataEntrega << "\n";
-    std::cout << "Itens: " << pedido.itens.size() << "\n";
-    std::cout << "Total Previsto: R$ " << pedido.totalPrevisto << "\n";
-    
-    std::cout << "Deseja confirmar o agendamento? (1-Sim, 0-Nao): ";
-    int confirm = Input::lerInteiro("");
-
-    if (confirm == 1) {
+    std::cout << "Confirmar pedido? (1-Sim, 0-Nao): ";
+    if (Input::lerInteiro("") == 1) {
         pedDao.criarPedido(pedido);
-    } else {
-        std::cout << "Cancelado.\n";
+    }
+    Input::pausar();
+}
+
+void menuListarPedidos(PedidoDAO& dao) {
+    Input::limparTela();
+    std::cout << "--- AGENDA DE PEDIDOS ---\n";
+    auto lista = dao.listarAbertos();
+    std::cout << "ID  | DATA             | CLIENTE          | TOTAL\n";
+    for(auto& p : lista) {
+        std::cout << std::left << std::setw(4) << p.id << "| "
+                  << std::setw(17) << p.dataEntrega << "| "
+                  << std::setw(17) << p.clienteNome.substr(0,16) << "| R$ " << p.total << "\n";
     }
     Input::pausar();
 }
@@ -243,41 +245,39 @@ void menuNovoPedido(ClienteDAO& cliDao, ProdutoDAO& prodDao, PedidoDAO& pedDao) 
 int main() {
     Database db("delivery.db");
     
-    // Instancia todos os DAOs
+    ClienteDAO clienteDAO(db);
     TipoAtivoDAO tipoDAO(db);
     ProdutoDAO produtoDAO(db);
     AtivoDAO ativoDAO(db);
-    ClienteDAO clienteDAO(db);
     PedidoDAO pedidoDAO(db);
 
     int opcao = -1;
 
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "=== DELIVERY CHOPP - SISTEMA COMPLETO ===\n";
-        std::cout << "1. Gerenciar TIPOS (Configuracao)\n";
-        std::cout << "2. Gerenciar PRODUTOS (Catalogo)\n";
-        std::cout << "3. Gerenciar ATIVOS (Estoque Fisico)\n";
-        std::cout << "4. NOVO PEDIDO\n";
-        std::cout << "5. Clientes (Cadastro Rapido)\n";
+        std::cout << "=== DELIVERY CHOPP SYSTEM ===\n";
+        std::cout << "1. Configuracoes (Tipos/Produtos/Ativos)\n";
+        std::cout << "2. Novo Pedido\n";
+        std::cout << "3. Ver Agenda de Pedidos\n";
+        std::cout << "5. Cadastrar Cliente Rapido\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
         switch (opcao) {
-            case 1: menuTipos(tipoDAO); break;
-            case 2: menuProdutos(produtoDAO, tipoDAO); break;
-            case 3: menuAtivos(ativoDAO, tipoDAO); break;
-            case 4: menuNovoPedido(clienteDAO, produtoDAO, pedidoDAO); break;
-            case 5: {
-                // Mini-menu de clientes pra não travar o fluxo
-                std::string nome = Input::lerString("Nome: ");
-                std::string tel = Input::lerString("Tel: ");
-                std::string end = Input::lerString("End: ");
-                Cliente c(nome, tel, end);
-                clienteDAO.inserir(c);
-                Input::pausar();
+            case 1: 
+                std::cout << "\n[1] Tipos [2] Produtos [3] Ativos: ";
+                int sub; std::cin >> sub; std::cin.ignore();
+                if(sub==1) menuTipos(tipoDAO);
+                else if(sub==2) menuProdutos(produtoDAO, tipoDAO);
+                else if(sub==3) menuAtivos(ativoDAO, tipoDAO);
                 break;
-            } 
+            case 2: menuNovoPedido(clienteDAO, produtoDAO, pedidoDAO); break;
+            case 3: menuListarPedidos(pedidoDAO); break;
+            case 5: {
+                Cliente c(Input::lerString("Nome: "), Input::lerString("Tel: "), Input::lerString("End: "));
+                clienteDAO.inserir(c);
+                break;
+            }
             case 0: std::cout << "Saindo...\n"; break;
             default: Input::pausar();
         }

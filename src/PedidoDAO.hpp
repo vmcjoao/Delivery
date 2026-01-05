@@ -5,9 +5,9 @@
 #include <iostream>
 #include "Database.hpp"
 #include "Pedido.hpp"
-#include "Cliente.hpp"
+#include "Cliente.hpp" 
 
-// Struct para listagem resumida
+// Struct simples para listagem
 struct PedidoResumo {
     int id;
     std::string clienteNome;
