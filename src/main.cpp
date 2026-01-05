@@ -130,7 +130,7 @@ void menuAtivos(AtivoDAO& aDao, TipoAtivoDAO& tDao) {
                 std::cout << std::left 
                           << std::setw(12) << item.ativo.codigoSerial << "| "
                           << std::setw(13) << item.ativo.status << "| "
-                          << std::setw(26) << item.nomeProduto.substr(0,25) << "| " // nomeProduto é nome do Tipo (devido ao JOIN)
+                          << std::setw(26) << item.nomeTipo.substr(0,25) << "| "
                           << item.ativo.observacao << "\n";
             }
             Input::pausar();

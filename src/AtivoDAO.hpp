@@ -6,10 +6,10 @@
 #include "Database.hpp"
 #include "Ativo.hpp"
 
-// Struct auxiliar para listagem amigável (por nome)
+// Struct auxiliar para listagem
 struct AtivoExibicao {
     Ativo ativo;
-    std::string nomeProduto;
+    std::string nomeTipo;
 };
 
 class AtivoDAO {
@@ -23,10 +23,7 @@ public:
 
     // 1. CADASTRAR NOVO ATIVO
     bool inserir(Ativo& a) {
-        std::string sql = 
-        "SELECT a.id, a.codigo_serial, a.status, a.observacao_fixa, t.nome "
-        "FROM ativos a JOIN tipos_ativos t ON a.tipo_ativo_id = t.id "
-        "ORDER BY a.codigo_serial ASC;";
+        std::string sql = "INSERT INTO ativos (codigo_serial, tipo_ativo_id, status, observacao_fixa) VALUES (?, ?, ?, ?);";
         sqlite3_stmt* stmt;
 
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -40,7 +37,6 @@ public:
         sqlite3_bind_text(stmt, 4, a.observacao.c_str(), -1, SQLITE_STATIC);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
-            // Provavelmente erro de código duplicado (UNIQUE constraint)
             std::cerr << "Erro ao inserir (Codigo ja existe?): " << sqlite3_errmsg(db) << std::endl;
             sqlite3_finalize(stmt);
             return false;
@@ -55,8 +51,8 @@ public:
     std::vector<AtivoExibicao> listarTodos() {
         std::vector<AtivoExibicao> lista;
         std::string sql = 
-            "SELECT a.id, a.codigo_serial, a.status, a.observacao_fixa, p.nome, p.id "
-            "FROM ativos a JOIN produtos p ON a.produto_id = p.id "
+            "SELECT a.id, a.codigo_serial, a.status, a.observacao_fixa, t.nome, t.id "
+            "FROM ativos a JOIN tipos_ativos t ON a.tipo_ativo_id = t.id "
             "ORDER BY a.codigo_serial ASC;";
 
         sqlite3_stmt* stmt;
@@ -69,8 +65,8 @@ public:
             item.ativo.status = (const char*)sqlite3_column_text(stmt, 2);
             item.ativo.observacao = (const char*)sqlite3_column_text(stmt, 3) ? (const char*)sqlite3_column_text(stmt, 3) : "";
             
-            item.nomeProduto = (const char*)sqlite3_column_text(stmt, 4);
-            item.ativo.tipoAtivoId = sqlite3_column_int(stmt, 5); // ID do produto
+            item.nomeTipo = (const char*)sqlite3_column_text(stmt, 4);
+            item.ativo.tipoAtivoId = sqlite3_column_int(stmt, 5);
 
             lista.push_back(item);
         }
@@ -81,7 +77,7 @@ public:
     // 3. BUSCAR POR CÓDIGO
     Ativo buscarPorCodigo(std::string codigo) {
         Ativo a;
-        std::string sql = "SELECT id, produto_id, status FROM ativos WHERE codigo_serial = ?;";
+        std::string sql = "SELECT id, tipo_ativo_id, status FROM ativos WHERE codigo_serial = ?;";
         sqlite3_stmt* stmt;
         
         sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);

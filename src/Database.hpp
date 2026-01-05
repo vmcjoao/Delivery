@@ -11,7 +11,6 @@ private:
     char* zErrMsg = 0;
     int rc;
 
-    // Função auxiliar para rodar SQL e logar erro/sucesso
     void criarTabela(const std::string& nomeTabela, const std::string& sql) {
         rc = sqlite3_exec(db, sql.c_str(), nullptr, 0, &zErrMsg);
         if (rc != SQLITE_OK) {
@@ -32,7 +31,6 @@ private:
         );
 
         // 2. Tipos de Ativos
-        // Ex: "Barril 50L", "Chopeira 1 Via"
         criarTabela("TIPOS_ATIVOS", 
             "CREATE TABLE IF NOT EXISTS tipos_ativos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -43,18 +41,18 @@ private:
         criarTabela("PRODUTOS", 
             "CREATE TABLE IF NOT EXISTS produtos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "nome TEXT NOT NULL,"           // "Chopp Pilsen 50L"
+            "nome TEXT NOT NULL,"
             "preco_base REAL NOT NULL,"
-            "tipo_ativo_id INTEGER,"        // Requer um "Barril 50L"
+            "tipo_ativo_id INTEGER,"        
             "FOREIGN KEY(tipo_ativo_id) REFERENCES tipos_ativos(id));"
         );
 
-        // 4. Ativos (Estoque Físico)
+        // 4. Ativos
         criarTabela("ATIVOS", 
             "CREATE TABLE IF NOT EXISTS ativos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "codigo_serial TEXT NOT NULL UNIQUE," 
-            "tipo_ativo_id INTEGER,"
+            "tipo_ativo_id INTEGER,"              
             "status TEXT DEFAULT 'DISPONIVEL',"
             "observacao_fixa TEXT,"
             "FOREIGN KEY(tipo_ativo_id) REFERENCES tipos_ativos(id));"
@@ -125,7 +123,6 @@ public:
         return db;
     }
     
-    // Método utilitário para execuções rápidas
     bool executarQuery(const std::string& sql) {
         return sqlite3_exec(db, sql.c_str(), nullptr, 0, nullptr) == SQLITE_OK;
     }
