@@ -2,121 +2,146 @@
 #include <vector>
 #include <iomanip>
 #include "Database.hpp"
+#include "Input.hpp"
+#include "TipoAtivoDAO.hpp"
 #include "ProdutoDAO.hpp"
 #include "AtivoDAO.hpp"
-#include "Input.hpp"
 
-// --- MENU 1: GESTÃO DE CATÁLOGO (Tipos de Produto) ---
-void menuProdutos(ProdutoDAO& dao) {
+// --- FUNÇÃO AUXILIAR: Selecionar um Tipo de Ativo ---
+// Retorna o ID do tipo escolhido ou 0 se cancelar
+int selecionarTipoAtivo(TipoAtivoDAO& tDao) {
+    std::vector<TipoAtivo> tipos = tDao.listarTodos();
+    
+    if (tipos.empty()) {
+        std::cout << ">> Nenhum Tipo de Equipamento cadastrado ainda!\n";
+        return 0;
+    }
+
+    std::cout << "\n--- TIPOS DISPONIVEIS ---\n";
+    for (const auto& t : tipos) {
+        std::cout << " [" << t.id << "] " << t.nome << "\n";
+    }
+    return Input::lerInteiro("\nDigite o ID do Tipo desejado: ");
+}
+
+// --- MENU 1: TIPOS DE ATIVO (Definições) ---
+void menuTipos(TipoAtivoDAO& tDao) {
     int opcao = -1;
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "--- CATALOGO DE PRODUTOS (TIPOS) ---\n";
-        std::cout << "1. Novo Tipo de Produto\n";
-        std::cout << "2. Listar Catalogo\n";
+        std::cout << "--- GESTAO DE TIPOS DE EQUIPAMENTO ---\n";
+        std::cout << "1. Cadastrar Novo Tipo (Ex: 'Barril 50L', 'Chopeira')\n";
+        std::cout << "2. Listar Tipos\n";
         std::cout << "0. Voltar\n";
         opcao = Input::lerInteiro("Opcao: ");
 
         if (opcao == 1) {
-            std::cout << "\nExemplos: 'Chopp Pilsen 50L', 'Chopeira Eletrica 110v'\n";
-            std::string nome = Input::lerString("Nome do Produto: ");
-            
-            std::cout << "Tipos validos: [BARRIL] [CHOPEIRA] [CILINDRO] [OUTROS]\n";
-            std::string tipo = Input::lerString("Categoria/Tipo: ");
-            
-            double preco = Input::lerDecimal("Preco Base de Venda/Aluguel (R$): ");
-            
-            Produto p(nome, tipo, preco);
-            if (dao.inserir(p)) {
-                Input::pausar();
-            }
+            std::string nome = Input::lerString("Nome do Tipo: ");
+            TipoAtivo t(nome);
+            tDao.inserir(t);
+            Input::pausar();
         }
         else if (opcao == 2) {
-            std::vector<Produto> lista = dao.listarTodos();
-            std::cout << "\n--- LISTA DE TIPOS ---\n";
-            std::cout << "ID | TIPO         | NOME                          | PRECO BASE\n";
-            std::cout << "------------------------------------------------------------\n";
-            std::cout << std::fixed << std::setprecision(2); 
-            
-            for (auto& p : lista) {
-                std::cout << std::left 
-                          << std::setw(3) << p.id << "| "
-                          << std::setw(13) << p.tipo << "| "
-                          << std::setw(30) << p.nome.substr(0,29) << "| R$ " 
-                          << p.precoBase << "\n";
+            std::vector<TipoAtivo> lista = tDao.listarTodos();
+            std::cout << "\nLISTA DE TIPOS:\n";
+            for(auto& t : lista) {
+                std::cout << "#" << t.id << " - " << t.nome << "\n";
             }
             Input::pausar();
         }
     }
 }
 
-// --- MENU 2: GESTÃO DE PATRIMÔNIO (Estoque Físico) ---
-void menuAtivos(AtivoDAO& ativoDao, ProdutoDAO& prodDao) {
+// --- MENU 2: PRODUTOS (Catálogo de Venda) ---
+void menuProdutos(ProdutoDAO& pDao, TipoAtivoDAO& tDao) {
     int opcao = -1;
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "--- ESTOQUE FISICO (ATIVOS) ---\n";
-        std::cout << "1. Cadastrar Novo Ativo (Etiquetar)\n";
-        std::cout << "2. Listar Todos os Ativos\n";
-        std::cout << "3. Buscar Ativo por Codigo\n";
+        std::cout << "--- CATALOGO DE PRODUTOS (VENDA) ---\n";
+        std::cout << "1. Novo Produto (Ex: 'Chopp Pilsen')\n";
+        std::cout << "2. Listar Catalogo\n";
         std::cout << "0. Voltar\n";
         opcao = Input::lerInteiro("Opcao: ");
 
         if (opcao == 1) {
-            // Passo 1: Escolher o TIPO
-            Input::limparTela();
-            std::cout << "--- PASSO 1: QUAL O TIPO DO ATIVO? ---\n";
-            std::vector<Produto> produtos = prodDao.listarTodos();
+            std::cout << ">> Passo 1: Defina os dados comerciais\n";
+            std::string nome = Input::lerString("Nome do Produto: ");
+            double preco = Input::lerDecimal("Preco Base (R$): ");
             
-            if (produtos.empty()) {
-                std::cout << ">> Voce precisa cadastrar Produtos no Catalogo antes!\n";
+            std::cout << "\n>> Passo 2: Esse produto usa que tipo de equipamento?\n";
+            int idTipo = selecionarTipoAtivo(tDao);
+            
+            if (idTipo != 0) {
+                Produto p(nome, preco, idTipo);
+                pDao.inserir(p);
                 Input::pausar();
-                continue;
+            } else {
+                Input::pausar();
             }
-
-            for (auto& p : produtos) {
-                std::cout << " [" << p.id << "] " << p.nome << " (" << p.tipo << ")\n";
-            }
-            int idProd = Input::lerInteiro("\nDigite o ID do Tipo de Produto: ");
-            
-            // Passo 2: Dados do Físico
-            std::cout << "\n--- PASSO 2: DADOS DO ATIVO ---\n";
-            std::string serial = Input::lerString("Codigo Serial (Ex: B-045, CH-01): ");
-            std::string obs = Input::lerString("Observacao (Ex: Risco na lateral): ");
-
-            Ativo novo(serial, idProd, obs);
-            ativoDao.inserir(novo);
-            Input::pausar();
         }
         else if (opcao == 2) {
-            std::vector<AtivoExibicao> lista = ativoDao.listarTodos();
-            std::cout << "\n--- LISTA DE PATRIMONIO ---\n";
-            std::cout << "CODIGO      | STATUS       | TIPO (PRODUTO)            | OBS\n";
-            std::cout << "-------------------------------------------------------------------\n";
-            
-            for (auto& item : lista) {
+            std::vector<Produto> lista = pDao.listarTodos();
+            std::cout << "\nCATALOGO:\n";
+            std::cout << std::fixed << std::setprecision(2);
+            for(auto& p : lista) {
+                std::cout << "#" << p.id << " | " << p.nome 
+                          << " | R$ " << p.precoBase 
+                          << " | Usa Tipo ID: " << p.tipoAtivoId << "\n";
+            }
+            Input::pausar();
+        }
+    }
+}
+
+// --- MENU 3: ATIVOS (Patrimônio Físico) ---
+void menuAtivos(AtivoDAO& aDao, TipoAtivoDAO& tDao) {
+    int opcao = -1;
+    while (opcao != 0) {
+        Input::limparTela();
+        std::cout << "--- CONTROLE DE PATRIMONIO (ESTOQUE FISICO) ---\n";
+        std::cout << "1. Cadastrar Ativo (Etiquetar Barril/Chopeira)\n";
+        std::cout << "2. Listar Patrimonio\n";
+        std::cout << "3. Buscar por Codigo\n";
+        std::cout << "0. Voltar\n";
+        opcao = Input::lerInteiro("Opcao: ");
+
+        if (opcao == 1) {
+            std::cout << ">> Passo 1: Qual o tipo do equipamento fisico?\n";
+            int idTipo = selecionarTipoAtivo(tDao);
+
+            if (idTipo != 0) {
+                std::cout << "\n>> Passo 2: Dados da Etiqueta\n";
+                std::string serial = Input::lerString("Codigo Serial (Ex: B-045): ");
+                std::string obs = Input::lerString("Observacao (Ex: Amassado): ");
+                
+                Ativo a(serial, idTipo, obs);
+                aDao.inserir(a);
+                Input::pausar();
+            } else {
+                Input::pausar();
+            }
+        }
+        else if (opcao == 2) {
+            std::vector<AtivoExibicao> lista = aDao.listarTodos();
+            std::cout << "\nPATRIMONIO:\n";
+            std::cout << "CODIGO      | STATUS       | TIPO DO ATIVO             | OBS\n";
+            std::cout << "----------------------------------------------------------------\n";
+            for(auto& item : lista) {
                 std::cout << std::left 
                           << std::setw(12) << item.ativo.codigoSerial << "| "
                           << std::setw(13) << item.ativo.status << "| "
-                          << std::setw(26) << item.nomeProduto.substr(0,25) << "| " 
+                          << std::setw(26) << item.nomeProduto.substr(0,25) << "| " // nomeProduto é nome do Tipo (devido ao JOIN)
                           << item.ativo.observacao << "\n";
             }
-            std::cout << "-------------------------------------------------------------------\n";
-            std::cout << "Total de ativos: " << lista.size() << "\n";
             Input::pausar();
         }
         else if (opcao == 3) {
-            std::string busca = Input::lerString("Digite o codigo (ex: B-045): ");
-            Ativo a = ativoDao.buscarPorCodigo(busca);
-            
+            std::string busca = Input::lerString("Digite o codigo: ");
+            Ativo a = aDao.buscarPorCodigo(busca);
             if (a.id != 0) {
-                std::cout << "\n>> ENCONTRADO:\n";
-                std::cout << "ID Interno: " << a.id << "\n";
-                std::cout << "Serial:     " << a.codigoSerial << "\n";
-                std::cout << "Status:     " << a.status << "\n";
-                std::cout << "ID Tipo:    " << a.produtoId << "\n";
+                std::cout << "Encontrado! ID: " << a.id << " Status: " << a.status << "\n";
             } else {
-                std::cout << ">> Nao encontrado.\n";
+                std::cout << "Nao encontrado.\n";
             }
             Input::pausar();
         }
@@ -127,7 +152,8 @@ void menuAtivos(AtivoDAO& ativoDao, ProdutoDAO& prodDao) {
 int main() {
     Database db("delivery.db");
     
-    // Instanciando os DAOs necessários para Estoque
+    // Instancia todos os DAOs
+    TipoAtivoDAO tipoDAO(db);
     ProdutoDAO produtoDAO(db);
     AtivoDAO ativoDAO(db);
 
@@ -135,29 +161,33 @@ int main() {
 
     while (opcao != 0) {
         Input::limparTela();
-        std::cout << "=== SISTEMA DE GESTAO DE PATRIMONIO v2.0 ===\n";
-        std::cout << "1. Catalogo de Produtos (O que vendemos)\n";
-        std::cout << "2. Estoque Fisico / Ativos (O que temos)\n";
-        std::cout << "3. Pedidos (EM BREVE - FASE 3)\n";
+        std::cout << "=== DELIVERY CHOPP - GESTAO DE ESTOQUE v2.0 ===\n";
+        std::cout << "1. Gerenciar TIPOS (Definicoes)\n";
+        std::cout << "2. Gerenciar PRODUTOS (Catalogo)\n";
+        std::cout << "3. Gerenciar ATIVOS (Estoque Fisico)\n";
+        std::cout << "4. Pedidos\n";
         std::cout << "0. Sair\n";
         opcao = Input::lerInteiro("Escolha: ");
 
         switch (opcao) {
             case 1:
-                menuProdutos(produtoDAO);
+                menuTipos(tipoDAO);
                 break;
             case 2:
-                menuAtivos(ativoDAO, produtoDAO);
+                menuProdutos(produtoDAO, tipoDAO);
                 break;
             case 3:
-                std::cout << "Primeiro precisamos cadastrar o estoque!\n";
+                menuAtivos(ativoDAO, tipoDAO);
+                break;
+            case 4:
+                std::cout << "Vamos configurar o estoque primeiro!\n";
                 Input::pausar();
                 break;
             case 0:
                 std::cout << "Saindo...\n";
                 break;
             default:
-                std::cout << "Invalido.\n";
+                std::cout << "Opcao invalida.\n";
                 Input::pausar();
         }
     }

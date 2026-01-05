@@ -6,14 +6,13 @@
 class Produto {
 public:
     int id;
-    std::string nome;       // Ex: "Chopp Pilsen 50L"
-    std::string tipo;       // Ex: "BARRIL", "EQUIPAMENTO"
-    double precoBase;       // Preço de tabela
+    std::string nome;
+    double precoBase;
+    int tipoAtivoId;
 
-    Produto() : id(0), precoBase(0.0) {}
+    Produto() : id(0), precoBase(0.0), tipoAtivoId(0) {}
 
-    Produto(std::string n, std::string t, double p) 
-        : id(0), nome(n), tipo(t), precoBase(p) {}
+    Produto(std::string n, double p, int tId) 
+        : id(0), nome(n), precoBase(p), tipoAtivoId(tId) {}
 };
-
 #endif

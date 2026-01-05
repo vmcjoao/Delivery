@@ -23,7 +23,10 @@ public:
 
     // 1. CADASTRAR NOVO ATIVO
     bool inserir(Ativo& a) {
-        std::string sql = "INSERT INTO ativos (codigo_serial, produto_id, status, observacao_fixa) VALUES (?, ?, ?, ?);";
+        std::string sql = 
+        "SELECT a.id, a.codigo_serial, a.status, a.observacao_fixa, t.nome "
+        "FROM ativos a JOIN tipos_ativos t ON a.tipo_ativo_id = t.id "
+        "ORDER BY a.codigo_serial ASC;";
         sqlite3_stmt* stmt;
 
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -32,7 +35,7 @@ public:
         }
 
         sqlite3_bind_text(stmt, 1, a.codigoSerial.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(stmt, 2, a.produtoId);
+        sqlite3_bind_int(stmt, 2, a.tipoAtivoId);
         sqlite3_bind_text(stmt, 3, "DISPONIVEL", -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 4, a.observacao.c_str(), -1, SQLITE_STATIC);
 
@@ -67,7 +70,7 @@ public:
             item.ativo.observacao = (const char*)sqlite3_column_text(stmt, 3) ? (const char*)sqlite3_column_text(stmt, 3) : "";
             
             item.nomeProduto = (const char*)sqlite3_column_text(stmt, 4);
-            item.ativo.produtoId = sqlite3_column_int(stmt, 5); // ID do produto
+            item.ativo.tipoAtivoId = sqlite3_column_int(stmt, 5); // ID do produto
 
             lista.push_back(item);
         }
@@ -86,7 +89,7 @@ public:
 
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             a.id = sqlite3_column_int(stmt, 0);
-            a.produtoId = sqlite3_column_int(stmt, 1);
+            a.tipoAtivoId = sqlite3_column_int(stmt, 1);
             a.status = (const char*)sqlite3_column_text(stmt, 2);
             a.codigoSerial = codigo;
         }

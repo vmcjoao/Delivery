@@ -31,28 +31,36 @@ private:
             "data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP);"
         );
 
-        // 2. Produtos (O Catálogo abstrato - Ex: Chopp 50L)
+        // 2. Tipos de Ativos
+        // Ex: "Barril 50L", "Chopeira 1 Via"
+        criarTabela("TIPOS_ATIVOS", 
+            "CREATE TABLE IF NOT EXISTS tipos_ativos ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "nome TEXT NOT NULL UNIQUE);" 
+        );
+
+        // 3. Produtos
         criarTabela("PRODUTOS", 
             "CREATE TABLE IF NOT EXISTS produtos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "nome TEXT NOT NULL,"
-            "preco_base REAL NOT NULL," // Preço padrão de venda
-            "tipo TEXT NOT NULL);"      // BARRIL, CHOPEIRA, CILINDRO
+            "nome TEXT NOT NULL,"           // "Chopp Pilsen 50L"
+            "preco_base REAL NOT NULL,"
+            "tipo_ativo_id INTEGER,"        // Requer um "Barril 50L"
+            "FOREIGN KEY(tipo_ativo_id) REFERENCES tipos_ativos(id));"
         );
 
-        // 3. Ativos (Patrimônio Físico)
-        // Ex: Barril nº B-045, Chopeira nº CH-02
+        // 4. Ativos (Estoque Físico)
         criarTabela("ATIVOS", 
             "CREATE TABLE IF NOT EXISTS ativos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "codigo_serial TEXT NOT NULL UNIQUE,"
-            "produto_id INTEGER,"
-            "status TEXT DEFAULT 'DISPONIVEL',"   // DISPONIVEL, EM_USO, MANUTENCAO
-            "observacao_fixa TEXT,"               // Ex: "Amassado mas funciona"
-            "FOREIGN KEY(produto_id) REFERENCES produtos(id));"
+            "codigo_serial TEXT NOT NULL UNIQUE," 
+            "tipo_ativo_id INTEGER,"
+            "status TEXT DEFAULT 'DISPONIVEL',"
+            "observacao_fixa TEXT,"
+            "FOREIGN KEY(tipo_ativo_id) REFERENCES tipos_ativos(id));"
         );
 
-        // 4. Pedidos
+        // 5. Pedidos
         criarTabela("PEDIDOS", 
             "CREATE TABLE IF NOT EXISTS pedidos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -61,32 +69,29 @@ private:
             "data_entrega TEXT NOT NULL,"
             "data_recolhimento TEXT NOT NULL,"
             "nr_pessoas INTEGER,"
-            "observacao_entrega TEXT,"         // Obs gerais (Zona rural, etc)
-            "status TEXT NOT NULL,"            // ABERTO, EM_ROTA, ENTREGUE, FINALIZADO
-            
-            // Controle Financeiro
-            "total_previsto REAL,"             // Valor calculado no pedido
-            "total_final REAL,"                // Valor real após fechamento
+            "observacao_entrega TEXT,"
+            "status TEXT NOT NULL,"
+            "total_previsto REAL,"
+            "total_final REAL,"
             "desconto REAL DEFAULT 0,"
             "forma_pagamento TEXT,"
             "status_pagamento TEXT DEFAULT 'PENDENTE',"
-            
             "FOREIGN KEY(cliente_id) REFERENCES clientes(id));"
         );
 
-        // 5. Itens do Pedido
+        // 6. Itens do Pedido
         criarTabela("ITENS_PEDIDO", 
             "CREATE TABLE IF NOT EXISTS itens_pedido ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "pedido_id INTEGER,"
             "produto_id INTEGER,"
             "quantidade_solicitada INTEGER NOT NULL,"
-            "preco_unitario_momento REAL,"    // Preço no momento do pedido
+            "preco_unitario_momento REAL,"
             "FOREIGN KEY(pedido_id) REFERENCES pedidos(id),"
             "FOREIGN KEY(produto_id) REFERENCES produtos(id));"
         );
 
-        // 6. Alocação de Ativos
+        // 7. Alocação
         criarTabela("ALOCACAO_ATIVOS", 
             "CREATE TABLE IF NOT EXISTS alocacao_ativos ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -94,7 +99,7 @@ private:
             "ativo_id INTEGER,"
             "data_hora_entrega DATETIME,"
             "data_hora_baixa DATETIME,"
-            "status_retorno TEXT,"            // VAZIO, CHEIO, COM_DEFEITO
+            "status_retorno TEXT,"
             "obs_retorno TEXT,"
             "FOREIGN KEY(pedido_id) REFERENCES pedidos(id),"
             "FOREIGN KEY(ativo_id) REFERENCES ativos(id));"

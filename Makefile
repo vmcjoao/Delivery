@@ -23,7 +23,7 @@ sqlite3.o: sqlite/sqlite3.c
 	$(CC) $(CFLAGS) sqlite/sqlite3.c -o sqlite3.o
 
 # Como compilar o main (usando g++)
-src/main.o: src/main.cpp src/Database.hpp src/ClienteDAO.hpp src/ProdutoDAO.hpp src/PedidoDAO.hpp src/Input.hpp
+src/main.o: src/main.cpp src/Database.hpp src/ClienteDAO.hpp src/ProdutoDAO.hpp src/PedidoDAO.hpp src/AtivoDAO.hpp src/TipoAtivoDAO.hpp src/Input.hpp
 	$(CXX) -c src/main.cpp -o src/main.o $(CXXFLAGS)
 
 # Limpar arquivos compilados
